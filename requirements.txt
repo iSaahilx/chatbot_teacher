@@ -1,3 +1,4 @@
 streamlit
 openai
 audio-recorder-streamlit
+assemblyai

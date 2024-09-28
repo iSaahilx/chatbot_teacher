@@ -1,13 +1,27 @@
 from openai import OpenAI
 import streamlit as st
 from audio_recorder_streamlit import audio_recorder
+import assemblyai as aai
+
+aai.settings.api_key = "1c200dc8799a4f8da95d7dceb844ba8d"
+transcriber = aai.Transcriber()
+
+
+# transcript = transcriber.transcribe("./my-local-audio-file.wav")
+
+
 
 st.title("Chatbot-Language-Teacher")
+
+
 recorded_audio = audio_recorder()
 if recorded_audio:
     audio_file = "audio.mp3"
     with open(audio_file, "wb") as f:
         f.write(recorded_audio)
+        transcript = transcriber.transcribe("./audio.mp3")
+        print(transcript.text)
+        st.write(transcript.text)
 
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
@@ -21,7 +35,7 @@ if "messages" not in st.session_state:
 language = st.selectbox("Choose the language you want to learn:", [
     "Arabic",  "English", "French", "German", "Hindi","Italian", 
     "Japanese", "Korean", "Malay", "Portuguese", "Russian", 
-    "Sanskrit", "Spanish", "Tamil", "Telugu", "Thai", "Turkish","Urdu", 
+    "Sanskrit", "Spanish", "Tamil", "Telugu", "Turkish","Urdu", 
 ])
 
 # Display chat messages from the session state

@@ -2,3 +2,6 @@ streamlit
 openai
 audio-recorder-streamlit
 assemblyai
+whisper
+ffmpeg
+gTTS

@@ -1,14 +1,11 @@
-import whisper
-from openai import OpenAI
 import streamlit as st
 from audio_recorder_streamlit import audio_recorder
 from gtts import gTTS
 import os
 import base64
-import re
-# Load Whisper model
-model = whisper.load_model("small")
-
+from pydub import AudioSegment
+from pydub.utils import make_chunks
+from openai import OpenAI
 
 # Initialize OpenAI API client
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
@@ -34,24 +31,14 @@ language_code_map = {
     "Tamil": "ta", "Telugu": "te", "Turkish": "tr", "Urdu": "ur"
 }
 
-
-
 # Function to clean text and convert to speech
 def clean_text_for_tts(text):
-    # Replace or remove unwanted characters
-    clean_text = text.replace('*', '')  # Remove asterisks
-    clean_text = clean_text.replace('astrix', '')  # Remove unwanted phrases in French
-    clean_text = clean_text.replace('tarankan', '')  # Remove unwanted phrases in Hindi
-    
-    # You can add more replacements as needed for other languages
+    clean_text = text.replace('*', '').replace('astrix', '').replace('tarankan', '')
     return clean_text
 
 # Function to convert text to speech and play it
 def text_to_speech(text, lang):
-    # Clean the text before converting it to speech
     clean_text = clean_text_for_tts(text)
-    
-    # Generate TTS audio
     tts = gTTS(text=clean_text, lang=lang)
     tts.save("response.mp3")
     audio_file = open("response.mp3", "rb")
@@ -59,25 +46,52 @@ def text_to_speech(text, lang):
     audio_file.close()
     os.remove("response.mp3")
     st.audio(audio_bytes, format="audio/mp3")
-   
 
 # Voice recorder option
 st.write("You can either record your voice or type a message to practice.")
 recorded_audio = audio_recorder()
 
-# If there's recorded audio, save and transcribe it
+# Initialize the chat messages if not already present
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# If there's recorded audio, save and transcribe it using Whisper API
 if recorded_audio:
-    audio_file = "audio.mp3"
-    with open(audio_file, "wb") as f:
+    audio_file_path = "audio.mp3"
+    with open(audio_file_path, "wb") as f:
         f.write(recorded_audio)
-    
-    # Transcribe the recorded audio using Whisper
-    result = model.transcribe(audio_file)
-    
+
+    # Load and split audio into chunks (if long)
+    audio = AudioSegment.from_file(audio_file_path)
+    chunk_length_ms = 60000  # 1 minute per chunk
+    chunks = make_chunks(audio, chunk_length_ms)
+    chunk_dir = "chunks/"
+    os.makedirs(chunk_dir, exist_ok=True)
+
+    # Transcribe each chunk using Whisper API
+    full_transcription = ""
+    for i, chunk in enumerate(chunks):
+        chunk_name = f"{chunk_dir}chunk{i}.mp3"
+        chunk.export(chunk_name, format="mp3")
+
+        # Open chunk file for transcription using Whisper API
+        with open(chunk_name, "rb") as audio_file_chunk:
+            transcription = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=audio_file_chunk
+            )
+            full_transcription += transcription.text + " "
+
+        # Optionally, remove the chunk after transcription to save space
+        os.remove(chunk_name)
+
+    # Remove the main audio file after processing
+    os.remove(audio_file_path)
+
     # Display the transcribed text in the chat as the user's message
-    st.session_state.messages.append({"role": "user", "content": result["text"]})
+    st.session_state.messages.append({"role": "user", "content": full_transcription})
     with st.chat_message("user"):
-        st.markdown(result["text"])
+        st.markdown(full_transcription)
 else:
     # Input prompt for the user to type if no audio is recorded
     prompt = st.chat_input("Are you ready to practice?")
@@ -88,10 +102,6 @@ else:
 
 if "openai_model" not in st.session_state:
     st.session_state["openai_model"] = "gpt-4o-mini"
-
-# Initialize the chat messages if not already present
-if "messages" not in st.session_state:
-    st.session_state.messages = []
 
 # Display the chat history
 for message in st.session_state.messages:

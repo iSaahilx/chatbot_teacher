@@ -9,11 +9,12 @@ import re
 # Load Whisper model
 model = whisper.load_model("small")
 
+
 # Initialize OpenAI API client
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # Title of the application
-st.title("Chatbot-Language-Teacher")
+st.title("ÖĞRETMENİN")
 
 # Language selection
 language = st.selectbox(
@@ -71,7 +72,7 @@ if recorded_audio:
         f.write(recorded_audio)
     
     # Transcribe the recorded audio using Whisper
-    result = model.transcribe(audio_file, language)
+    result = model.transcribe(audio_file)
     
     # Display the transcribed text in the chat as the user's message
     st.session_state.messages.append({"role": "user", "content": result["text"]})

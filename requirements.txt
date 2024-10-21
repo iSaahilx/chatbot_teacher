@@ -5,3 +5,4 @@ assemblyai
 whisper
 ffmpeg
 gTTS
+pydub
